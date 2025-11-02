@@ -1,0 +1,6 @@
+services:
+  minicommerce.userservice.api:
+    image: ${DOCKER_REGISTRY-}minicommerceuserserviceapi
+    build:
+      context: .
+      dockerfile: MiniCommerce.UserService.Api/Dockerfile
