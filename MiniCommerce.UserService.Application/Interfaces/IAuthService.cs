@@ -9,9 +9,11 @@ namespace MiniCommerce.UserService.Application.Interfaces
 {
     public interface IAuthService
     {
-        Task<UserDto> RegisterAsync(RegisterRequest request, CancellationToken ct = default);
-        Task<(UserDto User, string Token)> LoginAsync(LoginRequest request, CancellationToken ct = default);
-        Task<UserDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
+        Task<AuthResponse> LoginAsync(LoginRequest request);
+        Task<AuthResponse> RegisterAsync(RegisterRequest request);
+        Task<AuthResponse> RefreshTokenAsync(string refreshToken);
+        Task <bool>LogoutAsync(string refreshToken);
+
     }
 }
 

@@ -1,44 +1,40 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MiniCommerce.UserService.Application.Interfaces;
 using MiniCommerce.UserService.Domain.Entities;
-using MiniCommerce.UserService.Domain.Interfaces;
 using MiniCommerce.UserService.Infrastructure.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MiniCommerce.UserService.Infrastructure.Repositories
 {
-    public class UserRepository : IUserRepository
+    public class UserRepository : IUserService
     {
         private readonly UserDbContext _db;
         public UserRepository(UserDbContext db) => _db = db;
 
-        public async Task AddAsync(User user, CancellationToken ct = default)
+
+        public async Task AddAsync(User user)
         {
-            await _db.Users.AddAsync(user, ct);
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
         }
 
-        public async Task<User?> GetByEmailAsync(string email, CancellationToken ct = default)
+
+        public async Task<User?> GetByEmailAsync(string email)
         {
-            return await _db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+            return await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == email);
         }
 
-        public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct = default)
+
+        public async Task<User?> GetByIdAsync(Guid id)
         {
-            return await _db.Users.FindAsync(new object[] { id }, ct);
+            return await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
         }
 
-        public Task UpdateAsync(User user, CancellationToken ct = default)
+
+        public async Task UpdateAsync(User user)
         {
+            user.UpdatedAt = DateTime.UtcNow;
             _db.Users.Update(user);
-            return Task.CompletedTask;
-        }
-
-        public async Task SaveChangesAsync(CancellationToken ct = default)
-        {
-            await _db.SaveChangesAsync(ct);
+            await _db.SaveChangesAsync();
         }
     }
 }

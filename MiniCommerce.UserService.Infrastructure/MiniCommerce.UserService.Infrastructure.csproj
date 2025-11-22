@@ -26,4 +26,8 @@
     <ProjectReference Include="..\MiniCommerce.UserService.Domain\MiniCommerce.UserService.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
 </Project>

@@ -13,6 +13,7 @@ namespace MiniCommerce.UserService.Infrastructure.Data
         public UserDbContext(DbContextOptions<UserDbContext> opts) : base(opts) { }
 
         public DbSet<User> Users { get; set; } = null!;
+        public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -24,8 +25,16 @@ namespace MiniCommerce.UserService.Infrastructure.Data
                 b.Property(u => u.PasswordHash).IsRequired();
                 b.Property(u => u.FirstName).IsRequired();
                 b.Property(u => u.LastName).IsRequired();
-                b.Property(u => u.CreatedAt).IsRequired();
             });
+
+
+            modelBuilder.Entity<RefreshToken>(b =>
+            {
+                b.HasKey(r => r.Id);
+                b.HasIndex(r => r.Token).IsUnique();
+                b.HasOne<User>().WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
+            });
+
 
             base.OnModelCreating(modelBuilder);
         }

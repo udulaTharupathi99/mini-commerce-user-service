@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MiniCommerce.UserService.Application.Interfaces;
+using MiniCommerce.UserService.Application.Services;
 using MiniCommerce.UserService.Infrastructure.Data;
 using MiniCommerce.UserService.Infrastructure.Repositories;
 using MiniCommerce.UserService.Infrastructure.Services;
@@ -20,18 +21,19 @@ builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnC
 var pg = builder.Configuration.GetConnectionString("Postgres") ?? "Host=localhost;Port=5432;Database=userdb;Username=postgres;Password=postgres";
 services.AddDbContext<UserDbContext>(opts => opts.UseNpgsql(pg));
 
-// DI - repositories & services
-services.AddScoped<MiniCommerce.UserService.Domain.Interfaces.IUserRepository, UserRepository>();
-services.AddScoped<IAuthService, AuthService>();
-
 // JWT settings
 var jwtSection = builder.Configuration.GetSection("JwtSettings");
 var jwtSettings = jwtSection.Get<JwtSettings>() ?? new JwtSettings();
 services.AddSingleton(jwtSettings);
-services.AddSingleton<JwtTokenGenerator>();
 
-// Authentication
-var key = Encoding.UTF8.GetBytes(jwtSettings.Secret);
+// DI - repositories & services
+services.AddScoped<IUserService, UserRepository>();
+services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenRepository>();
+builder.Services.AddScoped<IJwtProvider, JwtProvider>();
+
+
+// --- Authentication ---
 services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -39,62 +41,49 @@ services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; // set true in production
+    options.RequireHttpsMetadata = false; // local dev
     options.SaveToken = true;
-    options.MapInboundClaims = false; //keep original claim names from JWT
-
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = true,
         ValidateAudience = true,
+        ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
-        ClockSkew = TimeSpan.FromSeconds(30)
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+        ClockSkew = TimeSpan.Zero
     };
 });
 
 // Add controllers & swagger
 services.AddControllers();
 services.AddEndpointsApiExplorer();
-
-// ? Add Swagger configuration with JWT support
-services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(options =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "MiniCommerce User Service API",
-        Version = "v1",
-        Description = "Handles user registration, login, and authentication."
-    });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "User Service API", Version = "v1" });
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    var jwtScheme = new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme.\r\n\r\n" +
-                      "Enter 'Bearer' [space] and then your token in the text box below.\r\n\r\n" +
-                      "Example: \"Bearer 12345abcdef\"",
         Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+        Description = "JWT Authorization header using the Bearer scheme.",
+        Reference = new OpenApiReference
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
+            Type = ReferenceType.SecurityScheme,
+            Id = JwtBearerDefaults.AuthenticationScheme
         }
+    };
+
+    options.AddSecurityDefinition(jwtScheme.Reference.Id, jwtScheme);
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { jwtScheme, Array.Empty<string>() }
     });
 });
+
 
 // Build
 var app = builder.Build();
